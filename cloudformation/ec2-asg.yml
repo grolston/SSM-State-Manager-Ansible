@@ -1,0 +1,242 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates ASG with Specified Min, Max, and desired capacity in each specified subnet"
+
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Network configuration
+        Parameters:
+          - pVpc
+          - pVPCZoneIdentifier
+      - Label:
+          default: Auto Scaling Configs
+        Parameters:
+          - pMaxSizeASG
+          - pMinSizeASG
+          - pDesiredCapacityASG
+      - Label:
+          default: Amazon EC2 configuration
+        Parameters:
+          - pOperatingSystem
+          - pTagNameValue
+          - pVolumeSize
+          - pInstanceType
+
+    ParameterLabels:
+      pVpc:
+        default: VPC
+      pVolumeSize:
+        default: Volume Size
+      pMaxSizeASG:
+        default: Max Size of ASG
+      pMinSizeASG:
+        default: Minimum Size of ASG
+      pDesiredCapacityASG:
+        default: Desired Capacity of ASG
+      pVPCZoneIdentifier:
+        default: VPC Zone Identifier
+      pTagNameValue:
+        default: Name Tag Value
+      pOperatingSystem:
+        default: Operating System (do not change)
+      pInstanceType:
+        default: Instance Type
+
+Parameters:
+  pMaxSizeASG:
+    Description: "Enter the Max Size for the ASG"
+    Type: Number
+    Default: 1
+  pMinSizeASG:
+    Description: "Enter the Min Size for the ASG"
+    Type: Number
+    Default: 1
+  pDesiredCapacityASG:
+    Description: "Enter the desired capacity for the ASG"
+    Type: Number
+    Default: 1
+  pVPCZoneIdentifier:
+    Description: "List the Subnet Ids of the instances"
+    Type: List<AWS::EC2::Subnet::Id>
+  pOperatingSystem:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-ebs"
+  pVolumeSize:
+    Description: Enter the number of GBs you want your volume to be.
+    Type: Number
+    Default: 100
+    MinValue: 8
+  pTagNameValue:
+    Description: "Required: Enter the tag name you'd like applied to the instances. Tag Name gives the name to the EC2 instance."
+    Type: String
+    MinLength: 1
+  pVpc:
+    Description: The VPC to launch the EC2 instance in to.
+    Type: AWS::EC2::VPC::Id
+  pInstanceType:
+    Description: Instance type of EC2
+    Type: String
+    Default: "t3.micro"
+    AllowedValues:
+      - "t3.micro"
+      - "t3.small"
+      - "t3a.micro"
+      - "t3a.small"
+
+Rules:
+  SubnetInVPC:
+    Assertions:
+      - Assert: !EachMemberIn
+          - !ValueOfAll
+            - AWS::EC2::Subnet::Id
+            - VpcId
+          - !RefAll "AWS::EC2::VPC::Id"
+        AssertDescription: All subnets must in the VPC
+
+
+Resources:
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT10M
+    Properties:
+      AutoScalingGroupName: !Sub "ASG-${AWS::StackName}"
+      LaunchConfigurationName: !Ref LaunchConfig
+      Cooldown: '120'
+      DesiredCapacity: !Ref pDesiredCapacityASG
+      MaxSize: !Ref pMaxSizeASG
+      MinSize: !Ref pMinSizeASG
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref pVPCZoneIdentifier
+
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref pOperatingSystem
+      SecurityGroups:
+        - !Ref rSecurityGroupDefault
+      InstanceType: !Ref pInstanceType
+      IamInstanceProfile: !Ref rec2InstanceProfile
+      LaunchConfigurationName: !Sub "LC-${AWS::StackName}"
+      MetadataOptions:
+        HttpEndpoint: 'enabled'
+        HttpTokens: 'required'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref pVolumeSize
+            Encrypted: true
+      UserData:
+        Fn::Base64: !Sub |
+            #!/bin/bash
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource AutoScalingGroup --region ${AWS::Region}
+
+
+  rSecurityGroupDefault:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W5
+            reason: This default security group is purposely open to the world for egress for ease of adoption.
+          - id: W29
+            reason: This default security group is purposely open on all ports for egress for ease of adoption.
+          - id: W40
+            reason: Allow all outbound connections
+    Properties:
+      GroupDescription: !Sub "Default SG for SC Product ${pTagNameValue} "
+      VpcId: !Ref pVpc
+      SecurityGroupEgress:
+        - Description: Outbound unrestricted traffic
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Ref pTagNameValue
+
+  rEc2Role:
+    Type: AWS::IAM::Role
+    # checkov:skip=CKV_AWS_111:Ensure IAM policies does not allow write access without constraints
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: This default security group is purposely open to the world for egress for ease of adoption.
+          - id: W28
+            reason: Using explicit name for identification
+    Properties:
+      RoleName:  !Sub "ep-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+                - "ssm.amazonaws.com"
+            Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: ASG
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:SignalResource
+                Resource: "*"
+        - PolicyName: ssm-custom-s3-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::aws-ssm-${AWS::Region}/*'
+                  - !Sub 'arn:aws:s3:::aws-windows-downloads-${AWS::Region}/*'
+                  - !Sub 'arn:aws:s3:::amazon-ssm-${AWS::Region}/*'
+                  - !Sub 'arn:aws:s3:::amazon-ssm-packages-${AWS::Region}/*'
+                  - !Sub 'arn:aws:s3:::${AWS::Region}-birdwatcher-prod/*'
+                  - !Sub 'arn:aws:s3:::patch-baseline-snapshot-${AWS::Region}/*'
+                Effect: Allow
+        - PolicyName: ssm-s3-logging-bucket-policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-logs-${AWS::AccountId}-${AWS::Region}/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-logs-${AWS::AccountId}-${AWS::Region}'
+                Effect: Allow
+      ManagedPolicyArns:
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      - !Sub 'arn:${AWS::Partition}:iam::aws:policy/CloudWatchAgentServerPolicy'
+
+  rec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "ssm-ansible-${AWS::StackName}"
+      Path: /
+      Roles:
+        - !Ref rEc2Role
+
+Outputs:
+  AutoscalingGroup:
+    Description: "The newly created asg"
+    Value:
+      Ref: "AutoScalingGroup"
+  LaunchConfig:
+    Description: "the newly created launch config"
+    Value:
+      Ref: "LaunchConfig"

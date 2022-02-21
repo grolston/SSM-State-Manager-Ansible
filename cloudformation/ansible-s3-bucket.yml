@@ -1,0 +1,57 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Ansible Playbook S3 Bucket for SSM within AWS Org"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: AWS Org ID
+      Parameters:
+        - pOrganizationId
+    ParameterLabels:
+      pOrganizationId:
+        default: AWS Organization ID
+
+Parameters:
+  pOrganizationId:
+    Type: String
+    Description: The Organization ID to allow S3 read actions
+
+Resources:
+
+  rAnsiblePlayBookBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+        BucketName: !Sub "ssm-${pOrganizationId}"
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: Yes
+          BlockPublicPolicy: Yes
+          IgnorePublicAcls: Yes
+          RestrictPublicBuckets: Yes
+        VersioningConfiguration:
+          Status: Enabled
+
+  rAnsiblePlayBookBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref rAnsiblePlayBookBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "AllowOrgAccess"
+            Effect: Allow
+            Principal: "*"
+            Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub "${rAnsiblePlayBookBucket.Arn}"
+              - !Sub "${rAnsiblePlayBookBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                aws:PrincipalOrgID: !Ref pOrganizationId

@@ -1,0 +1,55 @@
+Description: "Deploy Single EC2 Linux Instance"
+Parameters:
+  # Using SSM Parameter Store to fetch the Latest AMI for Amazon Linux, eliminates the need for AMI Mappings
+  GitHubOwner:
+    Type: 'String'
+  GitHubRepo:
+    Type: 'String'
+  GitHubBranch:
+    Type: 'String'
+Resources:
+
+  SSMAssocLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "ssm-logs-${AWS::AccountId}-${AWS::Region}"
+
+  AnsibleAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      # Here using the AWS-ApplyAnsiblePlaybooks
+      Name: AWS-ApplyAnsiblePlaybooks
+      WaitForSuccessTimeoutSeconds: 300
+      # Targeting Instance by tag value
+      Targets:
+        - Key: tag:ansible-source
+          Values:
+            - 'github'
+      OutputLocation:
+        S3Location:
+          OutputS3BucketName: !Sub ssm-logs-${AWS::AccountId}-${AWS::Region}
+          OutputS3KeyPrefix: 'github/logs/'
+      Parameters:
+        # Getting an Ansible Playbook from a GitHub Location
+        SourceType:
+          - 'S3'
+        # At a minimum must include the following GitHub repo information, if using a private repo
+        # would want to include the GitHub Token option
+        SourceInfo:
+          -  !Sub |
+              {"owner":"${GitHubOwner}",
+              "repository":"${GitHubRepo}",
+              "path":"ansible/",
+              "getOptions":"branch:${GitHubBranch}"}
+        # Installing Ansible and its dependencies
+        InstallDependencies:
+          - 'True'
+        # Playbook file we want to run
+        PlaybookFile:
+          - 'github-local.yml'
+        ExtraVariables:
+          - 'SSM=True'
+        Check:
+          - 'False'
+        Verbose:
+          - '-v'

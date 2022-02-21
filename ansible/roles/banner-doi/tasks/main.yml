@@ -1,0 +1,36 @@
+---
+## General Banner Configurations
+- name: Modify the System Login Banner - /etc/issue
+  copy:
+    src: doi-banner.txt
+    dest: /etc/issue
+    group: root
+    owner: root
+    mode: 644
+
+- name: Modify the System Login Banner - /etc/issue.net
+  copy:
+    src: doi-banner.txt
+    dest: /etc/issue.net
+    group: root
+    owner: root
+    mode: 644
+
+- name: Modify the System Login Banner - /etc/motd
+  copy:
+    src: doi-banner.txt
+    dest: /etc/motd
+    group: root
+    owner: root
+    mode: 644
+  when: ansible_distribution in ["RedHat", "CentOS", "Amazon"]
+
+- name: Modify the System Login Banner - /etc/motd
+  copy:
+    content: ""
+    dest: /etc/motd
+    group: root
+    owner: root
+    mode: 644
+  when: ansible_distribution in ["Ubuntu"]
+
