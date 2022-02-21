@@ -6,10 +6,12 @@ Parameters:
     Description: specify path of the playbook file or the directory for ssm to download
 
 Resources:
+
   SSMAssocLogs:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "ssm-logs-${AWS::AccountId}-${AWS::Region}"
+      BucketName: !Sub "ssm-github-logs-${AWS::AccountId}-${AWS::Region}"
+
   AnsibleAssociation:
     Type: AWS::SSM::Association
     Properties:
@@ -22,6 +24,9 @@ Resources:
         - Key: tag:ansible-source
           Values:
             - 's3'
+        - Key: tag:role
+          Values:
+            - 'banner-dod'
       OutputLocation:
         S3Location:
           OutputS3BucketName: !Sub ssm-logs-${AWS::AccountId}-${AWS::Region}

@@ -216,8 +216,10 @@ Resources:
                   - s3:PutObjectAcl
                   - s3:ListBucket
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-logs-${AWS::AccountId}-${AWS::Region}/*'
-                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-logs-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-s3-logs-${AWS::AccountId}-${AWS::Region}/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-s3-logs-${AWS::AccountId}-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-github-logs-${AWS::AccountId}-${AWS::Region}/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::ssm-github-logs-${AWS::AccountId}-${AWS::Region}'
                 Effect: Allow
       ManagedPolicyArns:
       - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
