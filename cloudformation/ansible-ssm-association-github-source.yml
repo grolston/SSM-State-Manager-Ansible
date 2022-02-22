@@ -1,25 +1,28 @@
-Description: "Deploy Single EC2 Linux Instance"
+Description: "SM State Manager Association with Ansible GitHub Source"
 Parameters:
-  # Using SSM Parameter Store to fetch the Latest AMI for Amazon Linux, eliminates the need for AMI Mappings
   GitHubOwner:
     Type: 'String'
   GitHubRepo:
     Type: 'String'
   GitHubBranch:
     Type: 'String'
+
 Resources:
 
   AnsibleAssociation:
     Type: AWS::SSM::Association
     Properties:
-      # Here using the AWS-ApplyAnsiblePlaybooks
+      AssociationName: "DOI-Banner"
+      # Specify using the AWS-ApplyAnsiblePlaybooks
       Name: AWS-ApplyAnsiblePlaybooks
       WaitForSuccessTimeoutSeconds: 300
-      # Targeting Instance by tag value
+      # Targeting Instance by tagging
       Targets:
-        - Key: tag:role
+        - Key: tag:ansible-role
           Values:
             - 'banner-doi'
+      ## how often state association should run checking for compliance
+      ScheduleExpression: rate(30 minutes)
       Parameters:
         # Getting an Ansible Playbook from a GitHub Location
         SourceType:

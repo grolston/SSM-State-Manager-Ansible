@@ -1,4 +1,4 @@
-Description: "Deploy Single EC2 Linux Instance"
+Description: "SSM State Manager Association with Ansible S3 Source"
 Parameters:
 
   pPlayBookUri:
@@ -11,15 +11,15 @@ Resources:
     Type: AWS::SSM::Association
     Properties:
       AssociationName: "DoD-Banner"
-      # Here using the AWS-ApplyAnsiblePlaybooks
+      # Specify using the AWS-ApplyAnsiblePlaybooks
       Name: AWS-ApplyAnsiblePlaybooks
       WaitForSuccessTimeoutSeconds: 300
-      # Targeting Instance by InstanceId passed from the Logical ID of Instance being created
-      # in CloudFormation
+      # Targeting Instance by tagging
       Targets:
         - Key: tag:ansible-role
           Values:
             - banner-dod
+      ## how often state association should run checking for compliance
       ScheduleExpression: rate(30 minutes)
       Parameters:
         # Getting an Ansible Playbook from a S3 Location
