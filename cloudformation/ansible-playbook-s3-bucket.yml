@@ -19,7 +19,7 @@ Parameters:
     Description: The Organization ID to allow S3 read actions
 
 Resources:
-
+  ## S3 Bucket told hold all Playbooks
   rAnsiblePlayBookBucket:
     Type: "AWS::S3::Bucket"
     Properties:
@@ -36,6 +36,8 @@ Resources:
         VersioningConfiguration:
           Status: Enabled
 
+  ## S3 Bucket policy to allow read actions from resources
+  ## within the AWS Organization
   rAnsiblePlayBookBucketPolicy:
     Type: "AWS::S3::BucketPolicy"
     Properties:
