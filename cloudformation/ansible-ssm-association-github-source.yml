@@ -9,11 +9,6 @@ Parameters:
     Type: 'String'
 Resources:
 
-  SSMAssocLogs:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "ssm-s3-logs-${AWS::AccountId}-${AWS::Region}"
-
   AnsibleAssociation:
     Type: AWS::SSM::Association
     Properties:
@@ -22,20 +17,13 @@ Resources:
       WaitForSuccessTimeoutSeconds: 300
       # Targeting Instance by tag value
       Targets:
-        - Key: tag:ansible-source
-          Values:
-            - 'github'
         - Key: tag:role
           Values:
             - 'banner-doi'
-      OutputLocation:
-        S3Location:
-          OutputS3BucketName: !Sub ssm-logs-${AWS::AccountId}-${AWS::Region}
-          OutputS3KeyPrefix: 'github/logs/'
       Parameters:
         # Getting an Ansible Playbook from a GitHub Location
         SourceType:
-          - 'S3'
+          - 'GitHub'
         # At a minimum must include the following GitHub repo information, if using a private repo
         # would want to include the GitHub Token option
         SourceInfo:
