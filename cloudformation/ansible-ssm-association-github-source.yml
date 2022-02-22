@@ -12,9 +12,11 @@ Resources:
   AnsibleAssociation:
     Type: AWS::SSM::Association
     Properties:
+      ## Friendly name of association being created
       AssociationName: "DOI-Banner"
       # Specify using the AWS-ApplyAnsiblePlaybooks
       Name: AWS-ApplyAnsiblePlaybooks
+      ## Adjust as needed for how long playbook takes to execute
       WaitForSuccessTimeoutSeconds: 300
       # Targeting Instance by tagging
       Targets:
@@ -43,6 +45,7 @@ Resources:
           - 'github-local.yml'
         ExtraVariables:
           - 'SSM=True'
+        ## change to True if you want to do a dry-run
         Check:
           - 'False'
         Verbose:
