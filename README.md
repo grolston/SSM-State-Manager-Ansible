@@ -10,7 +10,17 @@ Within the `./cloudformation` directory are the templates to be deployed. Start 
 
 After deployment of [cloudformation/ansible-playbook-s3-bucket.yml](cloudformation/ansible-playbook-s3-bucket.yml), you can setup a pipeline to deliver the Ansible Playbooks. The current project uses GitHub Actions and GitHub Action Secrets to deliver all contents of the `./ansible` directory to the S3 Bucket. For the purpose of testing, there are two GitHub workflows: one for delivering to a /test/ prefix and one delivering to a /production/ prefix. The two prefixes can be used to test your Ansible Playbooks without impacting production workloads.
 
+## Architecture
 
+The following details the two different SSM-Ansible deployments: `SSM-Ansible-GitHub Source` and `SSM-Ansible-S3 Source`.
+
+### SSM-Ansible-GitHub Source
+
+![SSM-Ansible-GitHub Source](docs/ansible-ssm-arch.drawio.png)
+
+### SSM-Ansible-S3 Source
+
+![SSM-Ansible-S3 Source](docs/ansible-ssm-s3-arch.drawio.png)
 
 ## Resources
 
