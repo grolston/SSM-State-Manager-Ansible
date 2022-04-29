@@ -1,0 +1,185 @@
+---
+## Supports only AWS LINUX 2
+
+- name: Disable SELinux
+  ansible.posix.selinux:
+    state: disabled
+
+- name: Disable swap for current session
+  command: swapoff -a
+  become: true
+
+- name: Disable swap permanently, persist reboots
+  replace:
+    path: /etc/fstab
+    regexp: '^(\s*)([^#\n]+\s+)(\w+\s+)swap(\s+.*)$'
+    replace: '#\1\2\3swap\4'
+    backup: yes
+
+- name: Ensure a list of yum packages are installed
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    update_cache: yes
+  vars:
+    packages:
+    - python-pip
+    - yum-utils
+    - device-mapper-persistent-data
+    - lvm2
+    - amazon-linux-extras
+    - iproute-tc
+    - socat
+    #- firewalld  ## not configured yet
+    - conntrack-tools
+
+- name: Add extras repository
+  shell: yum-config-manager --enable extras
+
+- name: Install docker-ce (centos) via amazon-linux-extras packages
+  shell: >
+    amazon-linux-extras install docker -y
+
+- name: clean yum metadata cache
+  command: yum clean metadata
+  args:
+    warn: false
+
+- name: Ensure a list of yum packages are installed
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    update_cache: yes
+  vars:
+    packages:
+    - python3.8
+    - ansible
+    - docker
+
+- name: Enable Docker CE service at startup
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Upgrade pip3
+  shell: "python3.8 -m pip install pip --upgrade"
+
+- name: Ensure Python pip packages are installed
+  pip:
+    name: "{{ packages }}"
+    executable: /usr/local/bin/pip3.8
+  vars:
+    packages:
+    - boto
+    - boto3
+    - docker-compose
+
+- name: Setup Kubernetes repo - /etc/yum.repos.d/kubernetes.repo
+  copy:
+    src: kubernetes.repo
+    dest: /etc/yum.repos.d/kubernetes.repo
+    group: root
+    owner: root
+    mode: 644
+
+- name: Install K8
+  yum:
+    name: "{{ packages }}"
+    state: latest
+    update_cache: yes
+    disable_excludes: kubernetes
+  vars:
+    packages:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable kubelet service at startup
+  service:
+    name: kubelet
+    state: started
+    enabled: yes
+
+- name: Creates kubelet directory
+  file:
+    path: /usr/bin/kubelet
+    state: directory
+
+- name: download kubelet
+  get_url:
+    url: https://distro.eks.amazonaws.com/kubernetes-1-19/releases/4/artifacts/kubernetes/v1.19.8/bin/linux/amd64/kubelet
+    dest: /usr/bin/kubelet
+
+- name: download kubeadm
+  get_url:
+    url: https://distro.eks.amazonaws.com/kubernetes-1-19/releases/4/artifacts/kubernetes/v1.19.8/bin/linux/amd64/kubeadm
+    dest: /usr/bin/kubeadm
+
+- name: download kubectl
+  get_url:
+    url: https://distro.eks.amazonaws.com/kubernetes-1-19/releases/4/artifacts/kubernetes/v1.19.8/bin/linux/amd64/kubectl
+    dest: /usr/bin/kubetl
+
+- name: Enable kubelet service at startup
+  service:
+    name: kubelet
+    state: started
+    enabled: yes
+
+- name: Setup kubeadm-flags.env
+  copy:
+    src: kubeadm-flags.env
+    dest: /var/lib/kubelet/kubeadm-flags.env
+    group: root
+    owner: root
+    mode: 644
+
+- name: Pull docker image
+  shell: "docker pull {{ images }}"
+  var:
+    images:
+      - "public.ecr.aws/eks-distro/kubernetes/pause:v1.19.8-eks-1-19-4"
+      - "public.ecr.aws/eks-distro/coredns/coredns:v1.8.0-eks-1-19-4"
+      - "public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.14-eks-1-19-4"
+
+- name: Pull docker tag
+  shell: "docker tag {{ images }}"
+  var:
+    images:
+      - "public.ecr.aws/eks-distro/kubernetes/pause:v1.19.8-eks-1-19-4 public.ecr.aws/eks-distro/kubernetes/pause:3.2"
+      - "public.ecr.aws/eks-distro/coredns/coredns:v1.8.0-eks-1-19-4 public.ecr.aws/eks-distro/kubernetes/coredns:1.7.0"
+      - "public.ecr.aws/eks-distro/etcd-io/etcd:v3.4.14-eks-1-19-4 public.ecr.aws/eks-distro/kubernetes/etcd:3.4.9-1"
+
+- name: br_netfilter
+  shell: >
+    echo 'br_netfilter' > /etc/modules-load.d/k8s.conf
+
+- name: netbridge
+  shell: >
+    echo 'net.bridge.bridge-nf-call-iptables = 1' > /etc/sysctl.d/99k8s.conf
+
+- name: IPTables
+  shell: >
+    echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables
+
+- name: kubeinit
+  shell: >
+    kubeadm init --image-repository public.ecr.aws/eks-distro/kubernetes --kubernetes-version v1.19.8-eks-1-19-4
+
+- name: Creates home user kube directory
+  file:
+    path: /home/ec2-user/.kube
+    state: directory
+
+- name: Copy config file
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ec2-user/.kube/config
+    remote_src: yes
+    group: ec2-user
+    owner: ec2-user
+
+- name: kubectly apply
+  shell: >
+    kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
