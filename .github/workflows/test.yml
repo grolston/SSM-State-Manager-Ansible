@@ -30,7 +30,6 @@ jobs:
         aws-region: us-west-2
         role-to-assume: arn:aws:iam::774319035716:role/GADemo-Deploy
         role-session-name: GADemoAnsibleTest
-        role-duration-seconds: '300'
     - name: Copy Ansible Playbook ot S3
       run: |
         aws s3 sync ./ansible s3://${{ secrets.BUCKET_NAME }}/test --delete
