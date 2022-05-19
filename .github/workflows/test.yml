@@ -27,7 +27,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v1
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@master
+      uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-region: us-west-2
         role-to-assume: arn:aws:iam::774319035716:role/GADemo-Deploy
