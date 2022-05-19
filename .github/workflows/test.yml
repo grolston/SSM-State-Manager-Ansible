@@ -30,7 +30,7 @@ jobs:
       uses: aws-actions/configure-aws-credentials@master
       with:
         aws-region: us-west-2
-        role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ACCOUNT_ROLE }}
+        role-to-assume: arn:aws:iam::774319035716:role/GADemo-Deploy
         role-session-name: GADemoAnsibleTest
     - name: Copy Ansible Playbook ot S3
       run: |
