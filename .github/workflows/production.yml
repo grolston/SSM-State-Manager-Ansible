@@ -8,8 +8,8 @@ on:
 env:
   AWS_DEFAULT_REGION: ${{ secrets.REGION }}
   AWS_DEFAULT_OUTPUT: json
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_ACCOUNT_ROLE: ${{ secrets.AWS_DEPLOY_ROLE }}
 
   ## TARGET BUCKET
   AWS_S3_BUCKET: ${{ secrets.BUCKET_NAME }}
@@ -19,13 +19,19 @@ jobs:
   push-dev:
     name: Build & Push
     runs-on: ubuntu-latest
+    # These permissions are needed to interact with GitHub's OIDC Token endpoint.
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@master
-    - uses: jakejarvis/s3-sync-action@master
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        args: --delete
-      env:
-        AWS_REGION: ${{ secrets.REGION }}
-        SOURCE_DIR: 'ansible'
-        DEST_DIR: "production/ansible"
+        aws-region: us-west-2
+        role-to-assume: arn:aws:iam::${{ AWS_ACCOUNT_ID }}:role/${{ AWS_ACCOUNT_ROLE }}
+        role-session-name: GADemoAnsibleProd
+    - name: Copy Ansible Playbook ot S3
+      run: |
+        aws s3 sync ./ansible s3://${{ secrets.BUCKET_NAME }}/production --delete

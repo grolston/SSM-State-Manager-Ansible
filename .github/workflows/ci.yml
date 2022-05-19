@@ -1,0 +1,26 @@
+name: CI Testing
+
+on: push
+
+env:
+  AWS_DEFAULT_REGION: ${{ secrets.REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  AWS_ACCOUNT_ROLE: ${{ secrets.AWS_DEPLOY_ROLE }}
+
+  ## TARGET BUCKET
+  AWS_S3_BUCKET: ${{ secrets.BUCKET_NAME }}
+
+jobs:
+
+  push-dev:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-region: us-west-2
+        role-to-assume: arn:aws:iam::${{ AWS_ACCOUNT_ID }}:role/my-github-actions-role
+        role-session-name: GADemoAnsibleCI
