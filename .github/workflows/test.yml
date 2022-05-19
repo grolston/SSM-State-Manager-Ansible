@@ -15,7 +15,6 @@ env:
   AWS_S3_BUCKET: ${{ secrets.BUCKET_NAME }}
 
 jobs:
-
   push-dev:
     name: Build & Push
     runs-on: ubuntu-latest
